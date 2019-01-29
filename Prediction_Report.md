@@ -1,80 +1,72 @@
 Summary:
 ========
 
-Six participants were asked to perform one set of 10 repetitions of
-barbell lifts correctly and incorrectly in 5 different ways. Data were
-collected from the accelerometers on the belt, forearm, arm, and
-dumbell. In this project, we will use the data to predict the **manner**
-in which participants did the exercise.
+Six participants were asked to perform one set of 10 repetitions of barbell lifts correctly and incorrectly in 5 different ways. Data were collected from the accelerometers on the belt, forearm, arm, and dumbell. In this project, we will use the data to predict the **manner** in which participants did the exercise.
 
-    library(tidyverse)
-    library(caret)
-    library(parallel)
-    library(doParallel)
-    library(randomForest)
-    library(rattle)
+``` r
+library(tidyverse)
+library(caret)
+library(parallel)
+library(doParallel)
+library(randomForest)
+library(rattle)
+```
 
 Loading Data
 ------------
 
-    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "pml-training.csv")
-    download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = "pml-testing.csv")
-    training<-read_csv("pml-training.csv")
-    testing<-read_csv("pml-testing.csv")
+``` r
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = "pml-testing.csv")
+training<-read_csv("pml-training.csv")
+testing<-read_csv("pml-testing.csv")
+```
 
 Data Cleaning and Splitting
 ---------------------------
 
-The data set includes summary statistics with variable names prefixed
-with "kurtosis\_", "skewness\_", "max\_", "min\_", "amplitude\_",
-"var\_", "avg\_", and "stddev\_". These columns contain very high
-proportions of missing values. I dropped the columns with mostly NA's
-and used only the raw sensor data. I also dropped the first few columns
-that contain information on the participants and the time windows. To
-conduct cross validation, I splitted the *pml-training.csv* file into
-the training set and the validation set.
+The data set includes summary statistics with variable names prefixed with "kurtosis\_", "skewness\_", "max\_", "min\_", "amplitude\_", "var\_", "avg\_", and "stddev\_". These columns contain very high proportions of missing values. I dropped the columns with mostly NA's and used only the raw sensor data. I also dropped the first few columns that contain information on the participants and the time windows. To conduct cross validation, I splitted the *pml-training.csv* file into the training set and the validation set.
 
-    training<-training%>%select_if(~!any(is.na(.)))
-    testing<-testing%>%select_if(~!any(is.na(.)))
+``` r
+training<-training%>%select_if(~!any(is.na(.)))
+testing<-testing%>%select_if(~!any(is.na(.)))
 
-    training<-select(training,roll_belt:classe)
-    testing<-select(testing,roll_belt:magnet_forearm_z)
+training<-select(training,roll_belt:classe)
+testing<-select(testing,roll_belt:magnet_forearm_z)
 
-    set.seed(12345)
-    inTrain<-createDataPartition(y=training$classe,p=0.7,list=F)
-    training<-training[inTrain,]
-    validation<-training[-inTrain,]
-    results<-validation$classe
-    validation<-validation%>%select(-classe)
+set.seed(12345)
+inTrain<-createDataPartition(y=training$classe,p=0.7,list=F)
+training<-training[inTrain,]
+validation<-training[-inTrain,]
+results<-validation$classe
+validation<-validation%>%select(-classe)
+```
 
 Configure Parallel Processing and *trainControl* Object
 -------------------------------------------------------
 
-Parallel processing was configured on the computer in order to improve
-the performance of random forest. I also chose the k-fold cross
-validation with k=5 for the resampling method in the *trainControl*
-object.
+Parallel processing was configured on the computer in order to improve the performance of random forest. I also chose the k-fold cross validation with k=5 for the resampling method in the *trainControl* object.
 
-    cluster <- makeCluster(detectCores() - 1) 
-    registerDoParallel(cluster)
-    fitControl <- trainControl(method = "cv", number = 5,
-                               allowParallel = TRUE)
+``` r
+cluster <- makeCluster(detectCores() - 1) 
+registerDoParallel(cluster)
+fitControl <- trainControl(method = "cv", number = 5,
+                           allowParallel = TRUE)
+```
 
 Model Training and Cross Validation
 -----------------------------------
 
-I used four different algorithms (trees, boosting, bagging and random
-forest) and compared their performance. Random forest and bagging yield
-the optimal accuracy of over 99% in the prediction on the validation
-set. I expect the out of sample error rate to be above 80%.
+I used four different algorithms (trees, boosting, bagging and random forest) and compared their performance. Random forest and bagging yield the optimal accuracy of over 99% in the prediction on the validation set. I expect the out of sample error rate to be above 80%.
 
 ### Trees
 
-Prediction with classification trees only yields an accuracy of around
-50%, which means this is not a good model for this problem.
+Prediction with classification trees only yields an accuracy of around 50%, which means this is not a good model for this problem.
 
-    fit_trees<-train(classe~.,method="rpart",data = training)
-    fit_trees
+``` r
+fit_trees<-train(classe~.,method="rpart",data = training)
+fit_trees
+```
 
     ## CART 
     ## 
@@ -95,18 +87,24 @@ Prediction with classification trees only yields an accuracy of around
     ## Accuracy was used to select the optimal model using the largest value.
     ## The final value used for the model was cp = 0.03753433.
 
-    fancyRpartPlot(fit_trees$finalModel)
+``` r
+fancyRpartPlot(fit_trees$finalModel)
+```
 
-![](Prediction_Report_files/figure-markdown_strict/unnamed-chunk-5-1.png)
+![](Prediction_Report_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
-    pred<-predict(fit_trees,validation)
-    confMat<-confusionMatrix(pred,as.factor(results))
-    confMat$overall[1]
+``` r
+pred<-predict(fit_trees,validation)
+confMat<-confusionMatrix(pred,as.factor(results))
+confMat$overall[1]
+```
 
     ##  Accuracy 
     ## 0.4939173
 
-    confMat$table
+``` r
+confMat$table
+```
 
     ##           Reference
     ## Prediction    A    B    C    D    E
@@ -118,11 +116,12 @@ Prediction with classification trees only yields an accuracy of around
 
 ### Boosting
 
-Boosting yields quite an improvement from classification trees. With a
-tree depth of 3 and 150 iterations, we can get an accuracy of over 97%.
+Boosting yields quite an improvement from classification trees. With a tree depth of 3 and 150 iterations, we can get an accuracy of over 97%.
 
-    fit_boosting<-train(classe~.,method="gbm", data = training, verbose=F)
-    fit_boosting
+``` r
+fit_boosting<-train(classe~.,method="gbm", data = training, verbose=F)
+fit_boosting
+```
 
     ## Stochastic Gradient Boosting 
     ## 
@@ -153,18 +152,24 @@ tree depth of 3 and 150 iterations, we can get an accuracy of over 97%.
     ## The final values used for the model were n.trees = 150,
     ##  interaction.depth = 3, shrinkage = 0.1 and n.minobsinnode = 10.
 
-    plot(fit_boosting)
+``` r
+plot(fit_boosting)
+```
 
-![](Prediction_Report_files/figure-markdown_strict/unnamed-chunk-6-1.png)
+![](Prediction_Report_files/figure-markdown_github/unnamed-chunk-6-1.png)
 
-    pred<-predict(fit_boosting,validation)
-    confMat<-confusionMatrix(pred,as.factor(results))
-    confMat$overall[1]
+``` r
+pred<-predict(fit_boosting,validation)
+confMat<-confusionMatrix(pred,as.factor(results))
+confMat$overall[1]
+```
 
     ##  Accuracy 
     ## 0.9746959
 
-    confMat$table
+``` r
+confMat$table
+```
 
     ##           Reference
     ## Prediction    A    B    C    D    E
@@ -176,11 +181,12 @@ tree depth of 3 and 150 iterations, we can get an accuracy of over 97%.
 
 ### Bagging
 
-Bagging classification trees with 25 bootstrap replications yields an
-accuracy of over 99%.
+Bagging classification trees with 25 bootstrap replications yields an accuracy of over 99%.
 
-    fit_bag <- train(classe~., method="treebag",data=training,trControl = fitControl)
-    fit_bag
+``` r
+fit_bag <- train(classe~., method="treebag",data=training,trControl = fitControl)
+fit_bag
+```
 
     ## Bagged CART 
     ## 
@@ -196,14 +202,18 @@ accuracy of over 99%.
     ##   Accuracy   Kappa   
     ##   0.9842759  0.980109
 
-    pred<-predict(fit_bag,validation)
-    confMat<-confusionMatrix(pred,as.factor(results))
-    confMat$overall[1]
+``` r
+pred<-predict(fit_bag,validation)
+confMat<-confusionMatrix(pred,as.factor(results))
+confMat$overall[1]
+```
 
     ## Accuracy 
     ##        1
 
-    confMat$table 
+``` r
+confMat$table 
+```
 
     ##           Reference
     ## Prediction    A    B    C    D    E
@@ -215,12 +225,13 @@ accuracy of over 99%.
 
 ### Random Forest
 
-Random Forest yields an optimal accuracy of over 99% with the number of
-variables at each split mtry=2 and 500 trees.
+Random Forest yields an optimal accuracy of over 99% with the number of variables at each split mtry=2 and 500 trees.
 
-    set.seed(12345)
-    fit_rf <- train(classe~., method="rf",data=training,trControl = fitControl)
-    fit_rf
+``` r
+set.seed(12345)
+fit_rf <- train(classe~., method="rf",data=training,trControl = fitControl)
+fit_rf
+```
 
     ## Random Forest 
     ## 
@@ -241,7 +252,9 @@ variables at each split mtry=2 and 500 trees.
     ## Accuracy was used to select the optimal model using the largest value.
     ## The final value used for the model was mtry = 2.
 
-    fit_rf$finalModel
+``` r
+fit_rf$finalModel
+```
 
     ## 
     ## Call:
@@ -259,22 +272,30 @@ variables at each split mtry=2 and 500 trees.
     ## D    0    0   34 2216    2 0.015985790
     ## E    0    0    0    6 2519 0.002376238
 
-    plot(fit_rf)
+``` r
+plot(fit_rf)
+```
 
-![](Prediction_Report_files/figure-markdown_strict/unnamed-chunk-8-1.png)
+![](Prediction_Report_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
-    plot(fit_rf$finalModel)
+``` r
+plot(fit_rf$finalModel)
+```
 
-![](Prediction_Report_files/figure-markdown_strict/unnamed-chunk-8-2.png)
+![](Prediction_Report_files/figure-markdown_github/unnamed-chunk-8-2.png)
 
-    pred<-predict(fit_rf,validation)
-    confMat<-confusionMatrix(pred,as.factor(results))
-    confMat$overall[1]
+``` r
+pred<-predict(fit_rf,validation)
+confMat<-confusionMatrix(pred,as.factor(results))
+confMat$overall[1]
+```
 
     ## Accuracy 
     ##        1
 
-    confMat$table
+``` r
+confMat$table
+```
 
     ##           Reference
     ## Prediction    A    B    C    D    E
@@ -287,24 +308,28 @@ variables at each split mtry=2 and 500 trees.
 De-register parallel processing cluster
 ---------------------------------------
 
-    stopCluster(cluster)
-    registerDoSEQ()
+``` r
+stopCluster(cluster)
+registerDoSEQ()
+```
 
 Conclusion and Prediction
 -------------------------
 
-Upon comparing the accuracy of the four models, I decided that both
-bagging and Random Forest would be a good model for this problem. When
-tested on the test set, they yield the same results in the predictions.
+Upon comparing the accuracy of the four models, I decided that both bagging and Random Forest would be a good model for this problem. When tested on the test set, they yield the same results in the predictions.
 
-    testPredRF<-predict(fit_rf,testing)
-    testPredRF
+``` r
+testPredRF<-predict(fit_rf,testing)
+testPredRF
+```
 
     ##  [1] B A B A A E D B A A B C B A E E A B B B
     ## Levels: A B C D E
 
-    testPredBag<-predict(fit_bag,testing)
-    testPredBag
+``` r
+testPredBag<-predict(fit_bag,testing)
+testPredBag
+```
 
     ##  [1] B A B A A E D B A A B C B A E E A B B B
     ## Levels: A B C D E
