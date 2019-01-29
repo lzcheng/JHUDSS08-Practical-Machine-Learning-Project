@@ -1,7 +1,7 @@
 ---
 title: "Prediction Report"
 author: "Lei Cheng"
-date: "January 29, 2019"
+date: "January 28, 2019"
 output: 
   html_document:
     keep_md: true
